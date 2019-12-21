@@ -81,13 +81,18 @@ extension Visualizer {
             }
         }
 		if config.showsLog {
-			print("started !")
+			print("Visualizer started !")
 		}
     }
     
     public class func stop() {
+        
         let instance = sharedInstance
         instance.enabled = false
+        
+        if instance.config.showsLog {
+            print("Visualizer stoped!!")
+        }
         
         for touch in instance.touchViews {
             touch.removeFromSuperview()
@@ -110,6 +115,10 @@ extension Visualizer {
         for view in touchViews {
             if view.superview == nil {
                 touchView = view
+                
+                if Visualizer.sharedInstance.config.showsLog {
+                    print("Visualizer dequeueTouchView(), touchView: \(String(describing: touchView))")
+                }
                 break
             }
         }
@@ -117,6 +126,10 @@ extension Visualizer {
         if touchView == nil {
             touchView = TouchView()
             touchViews.append(touchView!)
+            
+            if Visualizer.sharedInstance.config.showsLog {
+                print("Visualizer new touchView: \(String(describing: touchView))")
+            }
         }
         
         return touchView!
@@ -132,21 +145,48 @@ extension Visualizer {
         return nil
     }
     
-    public func handleEvent(_ event: UIEvent) {
+    open func handleEvent(_ event: UIEvent) {
         if event.type != .touches {
             return
         }
         
-        if !Visualizer.sharedInstance.enabled {
+        guard let instance = Optional(Visualizer.sharedInstance), instance.enabled else {
             return
         }
 
-        var topWindow = UIApplication.shared.keyWindow!
-        for window in UIApplication.shared.windows {
-            if window.isHidden == false && window.windowLevel > topWindow.windowLevel {
-                topWindow = window
+//        var topWindow = UIApplication.shared.keyWindow!
+//        if instance.config.showsLog {
+//            print("Visualizer topWindow: \(String(describing: topWindow))")
+//        }
+//
+//        for window in UIApplication.shared.windows {
+//            if window.description.contains("UITextEffectsWindow") ||
+//                window.description.contains("UIRemoteKeyboardWindow") {
+//                continue
+//            }
+//
+//            if window.isHidden == false && window.windowLevel > topWindow.windowLevel {
+//
+//                topWindow = window
+//
+//                if instance.config.showsLog {
+//                    print("Visualizer window and set topWindow: \(String(describing: window))")
+//                }
+//            }
+//        }
+
+        guard let topWindow = UIApplication.topViewController() else {
+            if instance.config.showsLog {
+                print("Visualizer topViewController is nil")
             }
+
+            return
         }
+        
+        if instance.config.showsLog {
+            print("Visualizer topWindow: \(String(describing: topWindow))")
+        }
+        
         
         for touch in event.allTouches! {
             let phase = touch.phase
@@ -156,12 +196,15 @@ extension Visualizer {
                 view.config = Visualizer.sharedInstance.config
                 view.touch = touch
                 view.beginTouch()
-                view.center = touch.location(in: topWindow)
-                topWindow.addSubview(view)
+                //view.center = touch.location(in: topWindow)
+                //topWindow.addSubview(view)
+                view.center = touch.location(in: topWindow.view)
+                topWindow.view.addSubview(view)
                 log(touch)
             case .moved:
                 if let view = findTouchView(touch) {
-                    view.center = touch.location(in: topWindow)
+//                    view.center = touch.location(in: topWindow)
+                    view.center = touch.location(in: topWindow.view)
                 }
                 
                 log(touch)
@@ -244,3 +287,49 @@ extension Visualizer {
         print(log, terminator: "")
     }
 }
+
+fileprivate extension UIApplication {
+    class func topViewController(base: UIViewController? = UIApplication.shared.keyWindow?.rootViewController) -> UIViewController? {
+        if let nav = base as? UINavigationController {
+            return topViewController(base: nav.visibleViewController)
+        }
+        if let tab = base as? UITabBarController {
+            if let selected = tab.selectedViewController {
+                return topViewController(base: selected)
+            }
+        }
+        if let presented = base?.presentedViewController {
+            return topViewController(base: presented)
+        }
+        return base
+    }
+    
+    func switchRootViewController(rootViewController: UIViewController, animated: Bool, completion: (() -> Void)?) {
+        guard let window = UIApplication.shared.keyWindow else { return }
+        if animated {
+            UIView.transition(with: window, duration: 0.5, options: .transitionCrossDissolve, animations: {
+                let oldState: Bool = UIView.areAnimationsEnabled
+                UIView.setAnimationsEnabled(false)
+                window.rootViewController = rootViewController
+                UIView.setAnimationsEnabled(oldState)
+            }, completion: { (finished: Bool) -> () in
+                if let completion = completion {
+                    completion()
+                }
+            })
+        } else {
+            window.rootViewController = rootViewController
+            if let completion = completion {
+                completion()
+            }
+        }
+    }
+    
+    func rootViewController() -> UIViewController? {
+        guard let window = UIApplication.shared.keyWindow else { return nil }
+        
+        return window.rootViewController
+    }
+    
+}
+

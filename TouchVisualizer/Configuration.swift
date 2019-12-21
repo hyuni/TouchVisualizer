@@ -27,7 +27,7 @@ public struct Configuration {
         UIGraphicsEndImageContext()
 
         return image?.withRenderingMode(.alwaysTemplate)
-    }()
+        }()
 
     /**
     Default touch point size. If `showsTouchRadius` is enabled, this value is ignored
@@ -48,7 +48,7 @@ public struct Configuration {
     /**
     Shows log. This will affect performance. Make sure showing logs only in development environment
     */
-    public var showsLog = false
+    public var showsLog = true
 
     public init(){}
 }
